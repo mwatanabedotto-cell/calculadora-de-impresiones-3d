@@ -116,13 +116,31 @@
       <h1>Calculadora de costo de impresión 3D</h1>
       <p>Material, energía, desgaste, mano de obra, fallos y margen de ganancia.</p>
     </div>
-    <label style="min-width:140px">Moneda
+    <label style="min-width:240px">Moneda
       <select id="moneda">
-        <option value="$">$</option>
-        <option value="€">€</option>
-        <option value="R$">R$</option>
-        <option value="S/">S/</option>
-        <option value="US$">US$</option>
+        <option value="es-AR|ARS">Argentina — peso (ARS)</option>
+        <option value="es-BO|BOB">Bolivia — boliviano (BOB)</option>
+        <option value="pt-BR|BRL">Brasil — real (BRL)</option>
+        <option value="es-CL|CLP">Chile — peso (CLP)</option>
+        <option value="es-CO|COP">Colombia — peso (COP)</option>
+        <option value="es-CR|CRC">Costa Rica — colón (CRC)</option>
+        <option value="es-CU|CUP">Cuba — peso (CUP)</option>
+        <option value="es-EC|USD">Ecuador — dólar (USD)</option>
+        <option value="es-SV|USD">El Salvador — dólar (USD)</option>
+        <option value="es-ES|EUR">España — euro (EUR)</option>
+        <option value="es-US|USD">Estados Unidos — dólar (USD)</option>
+        <option value="es-GT|GTQ">Guatemala — quetzal (GTQ)</option>
+        <option value="es-GQ|XAF">Guinea Ecuatorial — franco CFA (XAF)</option>
+        <option value="es-HN|HNL">Honduras — lempira (HNL)</option>
+        <option value="es-MX|MXN">México — peso (MXN)</option>
+        <option value="es-NI|NIO">Nicaragua — córdoba (NIO)</option>
+        <option value="es-PA|PAB">Panamá — balboa (PAB)</option>
+        <option value="es-PY|PYG">Paraguay — guaraní (PYG)</option>
+        <option value="es-PE|PEN">Perú — sol (PEN)</option>
+        <option value="es-PR|USD">Puerto Rico — dólar (USD)</option>
+        <option value="es-DO|DOP">República Dominicana — peso (DOP)</option>
+        <option value="es-UY|UYU">Uruguay — peso (UYU)</option>
+        <option value="es-VE|VES">Venezuela — bolívar (VES)</option>
       </select>
     </label>
   </header>
@@ -274,7 +292,10 @@
     const v = parseFloat(document.getElementById(id).value);
     return Number.isFinite(v) && v > 0 ? v : 0;
   };
-  const fmt = v => moneda.value + ' ' + v.toLocaleString('es', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmt = v => {
+    const [locale, currency] = moneda.value.split('|');
+    return v.toLocaleString(locale, { style: 'currency', currency });
+  };
   const set = (id, v) => { document.getElementById(id).textContent = fmt(v); };
 
   function calcular() {
@@ -327,7 +348,12 @@
   function cargar() {
     try {
       const datos = JSON.parse(localStorage.getItem(CLAVE) || '{}');
-      campos.forEach(el => { if (datos[el.id] != null) el.value = datos[el.id]; });
+      campos.forEach(el => {
+        if (datos[el.id] == null) return;
+        // Ignora valores guardados que ya no existen en un <select> (p. ej. monedas antiguas).
+        if (el.tagName === 'SELECT' && ![...el.options].some(o => o.value === datos[el.id])) return;
+        el.value = datos[el.id];
+      });
     } catch (e) {}
   }
 

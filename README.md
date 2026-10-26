@@ -4,7 +4,7 @@ Página web estática (un solo archivo, sin dependencias) que calcula el costo r
 
 ## Uso
 
-Abre `index.html` en cualquier navegador. Los valores se guardan automáticamente en el navegador.
+Abre `index.html` en cualquier navegador y elige tu país en el selector de moneda (todos los países hispanohablantes y Brasil). Los valores se guardan automáticamente en el navegador.
 
 ## Qué calcula
 
