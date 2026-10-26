@@ -6,6 +6,22 @@ Página web estática (un solo archivo, sin dependencias) que calcula el costo r
 
 Abre `index.html` en cualquier navegador y elige tu país en el selector de moneda (todos los países hispanohablantes y Brasil). Los valores se guardan automáticamente en el navegador.
 
+## Productos y presupuestos
+
+- **Mis productos:** guarda la configuración actual con el nombre de la pieza y vuelve a cargarla cuando quieras.
+- **Enviar presupuesto:** completa tu negocio, el cliente y notas, y envíalo por WhatsApp, por email, con el menú de compartir del celular o como PDF (Imprimir → Guardar como PDF).
+
+Todo se guarda solo en el navegador del dispositivo (no hay servidor).
+
+## Publicar en Vercel
+
+Es un sitio estático, no necesita configuración:
+
+1. Entra en <https://vercel.com/new> e inicia sesión con GitHub.
+2. Importa el repositorio `calculadora-de-impresiones-3d`.
+3. Framework Preset: **Other**. Deja vacíos Build Command y Output Directory.
+4. Pulsa **Deploy**.
+
 ## Consumo de la impresora
 
 Elige tu modelo en la lista (Bambu Lab, Creality, Prusa, Anycubic, Elegoo, Artillery y de resina) para cargar su consumo promedio aproximado, o elige **Personalizada** e ingresa los watts. Las configuraciones personalizadas se pueden guardar con un nombre y aparecen en **Mis impresoras**.

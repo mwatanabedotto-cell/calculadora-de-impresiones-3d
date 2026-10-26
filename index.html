@@ -98,6 +98,19 @@
   .price .unit { font-size: 0.9rem; color: var(--muted); }
   .guardar { margin-top: 12px; align-items: end; }
   .guardar button { flex: none; width: 100%; }
+  .botones { display: flex; gap: 8px; }
+  .botones button { flex: 1; }
+  #impresion { display: none; }
+  @media print {
+    body { background: #fff; color: #000; }
+    .wrap { display: none; }
+    #impresion { display: block; padding: 24px; font-size: 14px; }
+    #impresion h1 { font-size: 22px; margin: 0 0 4px; }
+    #impresion .meta { color: #444; margin-bottom: 20px; }
+    #impresion table { margin: 16px 0; }
+    #impresion td { border-bottom: 1px solid #ccc; padding: 8px 0; }
+    #impresion .total td { font-size: 18px; font-weight: 700; border-bottom: 2px solid #000; }
+  }
   .actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
   button {
     flex: 1;
@@ -150,6 +163,23 @@
 
   <div class="layout">
     <form id="form" autocomplete="off">
+      <fieldset>
+        <legend>Mis productos</legend>
+        <div class="grid guardar">
+          <label>Productos guardados
+            <select id="productos" data-nosave>
+              <option value="">— Elige un producto —</option>
+            </select>
+          </label>
+          <span class="botones">
+            <button type="button" id="btnCargarProducto">Cargar</button>
+            <button type="button" id="btnBorrarProducto">Eliminar</button>
+          </span>
+          <button type="button" class="primary" id="btnGuardarProducto">Guardar producto actual</button>
+        </div>
+        <p class="hint" id="estadoProducto">Guarda la configuración actual con el nombre de la pieza para reutilizarla después.</p>
+      </fieldset>
+
       <fieldset>
         <legend>Pieza</legend>
         <div class="grid">
@@ -311,6 +341,37 @@
         </div>
         <p class="hint">Los fallos encarecen material, energía y desgaste. Los impuestos/comisiones se calculan sobre el precio final (p. ej. comisión del marketplace).</p>
       </fieldset>
+
+      <fieldset id="enviar">
+        <legend>Enviar presupuesto</legend>
+        <div class="grid">
+          <label>Tu nombre o negocio
+            <input id="negocio" type="text" placeholder="Ej.: Impresiones Ana" data-nosave>
+          </label>
+          <label>Cliente
+            <input id="cliente" type="text" placeholder="Nombre del cliente" data-nosave>
+          </label>
+          <label>WhatsApp del cliente
+            <input id="telefono" type="tel" placeholder="Con código de país, ej.: 5491122334455" data-nosave>
+          </label>
+          <label>Email del cliente
+            <input id="email" type="email" placeholder="cliente@correo.com" data-nosave>
+          </label>
+          <label>Validez (días)
+            <input id="validez" type="number" min="0" step="1" value="15" data-nosave>
+          </label>
+          <label>Notas (color, plazo de entrega…)
+            <input id="notas" type="text" placeholder="Ej.: entrega en 3 días hábiles" data-nosave>
+          </label>
+        </div>
+        <div class="actions">
+          <button type="button" class="primary" id="btnWhatsapp">WhatsApp</button>
+          <button type="button" id="btnEmail">Email</button>
+          <button type="button" id="btnCompartir" hidden>Compartir…</button>
+          <button type="button" id="btnImprimir">Imprimir / PDF</button>
+        </div>
+        <p class="hint">Si no pones el WhatsApp, se abre WhatsApp para que elijas el contacto. «Imprimir / PDF» genera un presupuesto listo para guardar como PDF.</p>
+      </fieldset>
     </form>
 
     <aside aria-live="polite">
@@ -344,11 +405,13 @@
   </div>
 </div>
 
+<div id="impresion"></div>
+
 <script>
 (function () {
   const form = document.getElementById('form');
   const moneda = document.getElementById('moneda');
-  const campos = [...form.querySelectorAll('input:not([data-nosave]), select'), moneda];
+  const campos = [...form.querySelectorAll('input:not([data-nosave]), select:not([data-nosave])'), moneda];
   const defaults = Object.fromEntries(campos.map(el => [el.id, el.value]));
   const CLAVE = 'calc3d:v1';
   const CLAVE_IMPRESORAS = 'calc3d:impresoras';
@@ -485,16 +548,21 @@
     try { localStorage.setItem(CLAVE, JSON.stringify(Object.fromEntries(campos.map(el => [el.id, el.value])))); } catch (e) {}
   }
 
+  function aplicarValores(datos) {
+    campos.forEach(el => {
+      if (datos[el.id] == null) return;
+      // Ignora valores guardados que ya no existen en un <select> (p. ej. monedas antiguas).
+      if (el.tagName === 'SELECT' && ![...el.options].some(o => o.value === datos[el.id])) return;
+      el.value = datos[el.id];
+    });
+    // Si los W no coinciden con el modelo elegido (p. ej. datos de una versión anterior), es personalizada.
+    const wModelo = impresora.selectedOptions[0].dataset.w;
+    if (wModelo != null && parseFloat(watts.value) !== parseFloat(wModelo)) impresora.value = 'custom';
+    actualizarPanelImpresora();
+  }
+
   function cargar() {
-    try {
-      const datos = JSON.parse(localStorage.getItem(CLAVE) || '{}');
-      campos.forEach(el => {
-        if (datos[el.id] == null) return;
-        // Ignora valores guardados que ya no existen en un <select> (p. ej. monedas antiguas).
-        if (el.tagName === 'SELECT' && ![...el.options].some(o => o.value === datos[el.id])) return;
-        el.value = datos[el.id];
-      });
-    } catch (e) {}
+    try { aplicarValores(JSON.parse(localStorage.getItem(CLAVE) || '{}')); } catch (e) {}
   }
 
   campos.forEach(el => el.addEventListener('input', () => { calcular(); guardar(); }));
@@ -506,20 +574,172 @@
     calcular();
   });
 
-  document.getElementById('copiar').addEventListener('click', async e => {
+  // --- Productos guardados ---
+  const CLAVE_PRODUCTOS = 'calc3d:productos';
+  const productos = document.getElementById('productos');
+  const estadoProducto = document.getElementById('estadoProducto');
+
+  function leerProductos() {
+    try { return JSON.parse(localStorage.getItem(CLAVE_PRODUCTOS) || '[]'); } catch (e) { return []; }
+  }
+
+  function escribirProductos(lista) {
+    try { localStorage.setItem(CLAVE_PRODUCTOS, JSON.stringify(lista)); return true; } catch (e) { return false; }
+  }
+
+  function pintarProductos(seleccion) {
+    const lista = leerProductos().sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+    productos.replaceChildren(productos.options[0], ...lista.map(p => {
+      const o = document.createElement('option');
+      o.value = p.nombre;
+      o.textContent = p.nombre + ' — ' + p.precioTexto;
+      return o;
+    }));
+    productos.value = seleccion || '';
+  }
+
+  function avisar(texto) { estadoProducto.textContent = texto; }
+
+  document.getElementById('btnGuardarProducto').addEventListener('click', () => {
+    const r = calcular();
+    if (!r.nombre) {
+      avisar('Escribe un nombre en «Nombre de la pieza» para guardar el producto.');
+      document.getElementById('nombre').focus();
+      return;
+    }
+    // La moneda es una preferencia general, no parte del producto.
+    const valores = Object.fromEntries(campos.filter(el => el !== moneda).map(el => [el.id, el.value]));
+    const lista = leerProductos().filter(p => p.nombre !== r.nombre);
+    lista.push({ nombre: r.nombre, valores, precioTexto: fmt(r.precio) });
+    if (!escribirProductos(lista)) { avisar('No se pudo guardar (el navegador bloquea el almacenamiento).'); return; }
+    pintarProductos(r.nombre);
+    avisar('Producto «' + r.nombre + '» guardado.');
+  });
+
+  document.getElementById('btnCargarProducto').addEventListener('click', () => {
+    const p = leerProductos().find(p => p.nombre === productos.value);
+    if (!p) { avisar('Elige un producto de la lista.'); return; }
+    aplicarValores(p.valores);
+    calcular();
+    guardar();
+    avisar('Producto «' + p.nombre + '» cargado.');
+  });
+
+  document.getElementById('btnBorrarProducto').addEventListener('click', () => {
+    const nombre = productos.value;
+    if (!nombre) { avisar('Elige un producto de la lista.'); return; }
+    if (!confirm('¿Eliminar el producto «' + nombre + '»?')) return;
+    escribirProductos(leerProductos().filter(p => p.nombre !== nombre));
+    pintarProductos();
+    avisar('Producto «' + nombre + '» eliminado.');
+  });
+
+  // --- Presupuesto ---
+  const CLAVE_PRESUPUESTO = 'calc3d:presupuesto';
+  const val = id => document.getElementById(id).value.trim();
+  const persistentes = ['negocio', 'validez'];
+
+  try {
+    const datos = JSON.parse(localStorage.getItem(CLAVE_PRESUPUESTO) || '{}');
+    persistentes.forEach(id => { if (datos[id] != null) document.getElementById(id).value = datos[id]; });
+  } catch (e) {}
+  persistentes.forEach(id => document.getElementById(id).addEventListener('input', () => {
+    try {
+      localStorage.setItem(CLAVE_PRESUPUESTO, JSON.stringify(Object.fromEntries(persistentes.map(i => [i, val(i)]))));
+    } catch (e) {}
+  }));
+
+  function datosPresupuesto() {
     const r = calcular();
     const h = Math.floor(r.horas), m = Math.round((r.horas - h) * 60);
-    const lineas = [
-      'Presupuesto de impresión 3D' + (r.nombre ? ': ' + r.nombre : ''),
-      'Material: ' + document.getElementById('material').value + ', ' + num('peso') + ' g',
-      'Tiempo de impresión: ' + h + ' h ' + m + ' min'
-    ];
-    if (r.envio > 0) lineas.push(r.envioGratis ? 'Envío: gratis' : 'Envío: ' + fmt(r.envio));
-    lineas.push('Precio total' + (r.envio > 0 ? ' (con envío)' : '') + ': ' + fmt(r.precio));
-    if (r.cantidad > 1) lineas.push('Precio por unidad: ' + fmt(r.precio / r.cantidad) + ' (' + r.cantidad + ' piezas)');
+    const filas = [];
+    if (r.nombre) filas.push(['Pieza', r.nombre]);
+    filas.push(['Material', document.getElementById('material').value + ' · ' + num('peso') + ' g']);
+    filas.push(['Tiempo de impresión', h + ' h ' + m + ' min']);
+    if (r.cantidad > 1) {
+      filas.push(['Cantidad', r.cantidad + ' piezas']);
+      filas.push(['Precio por unidad', fmt(r.precio / r.cantidad)]);
+    }
+    if (r.envio > 0) filas.push(['Envío', r.envioGratis ? 'Gratis' : fmt(r.envio)]);
+    const validez = Math.round(num('validez'));
+    return {
+      negocio: val('negocio'),
+      cliente: val('cliente'),
+      notas: val('notas'),
+      fecha: new Date().toLocaleDateString('es'),
+      filas,
+      total: fmt(r.precio),
+      conEnvio: r.envio > 0,
+      validez: validez > 0 ? 'Presupuesto válido por ' + validez + (validez === 1 ? ' día.' : ' días.') : ''
+    };
+  }
+
+  function textoPresupuesto() {
+    const d = datosPresupuesto();
+    const lineas = ['*Presupuesto de impresión 3D*' + (d.negocio ? ' — ' + d.negocio : ''), 'Fecha: ' + d.fecha];
+    if (d.cliente) lineas.push('Cliente: ' + d.cliente);
+    lineas.push('');
+    d.filas.forEach(([k, v]) => lineas.push(k + ': ' + v));
+    lineas.push('*Total' + (d.conEnvio ? ' (con envío)' : '') + ': ' + d.total + '*');
+    if (d.notas) lineas.push('', 'Notas: ' + d.notas);
+    if (d.validez) lineas.push('', d.validez);
+    return lineas.join('\n');
+  }
+
+  document.getElementById('btnWhatsapp').addEventListener('click', () => {
+    const tel = val('telefono').replace(/\D/g, '');
+    window.open('https://wa.me/' + tel + '?text=' + encodeURIComponent(textoPresupuesto()), '_blank', 'noopener');
+  });
+
+  document.getElementById('btnEmail').addEventListener('click', () => {
+    const d = datosPresupuesto();
+    const asunto = 'Presupuesto de impresión 3D' + (d.filas[0][0] === 'Pieza' ? ': ' + d.filas[0][1] : '');
+    // En el email no se usa el formato *negrita* de WhatsApp.
+    const cuerpo = textoPresupuesto().replace(/\*/g, '');
+    location.href = 'mailto:' + encodeURIComponent(val('email')) +
+      '?subject=' + encodeURIComponent(asunto) + '&body=' + encodeURIComponent(cuerpo);
+  });
+
+  const btnCompartir = document.getElementById('btnCompartir');
+  if (navigator.share) {
+    btnCompartir.hidden = false;
+    btnCompartir.addEventListener('click', () => {
+      navigator.share({ title: 'Presupuesto de impresión 3D', text: textoPresupuesto().replace(/\*/g, '') }).catch(() => {});
+    });
+  }
+
+  document.getElementById('btnImprimir').addEventListener('click', () => {
+    const d = datosPresupuesto();
+    const el = (tag, texto, clase) => {
+      const n = document.createElement(tag);
+      if (texto != null) n.textContent = texto;
+      if (clase) n.className = clase;
+      return n;
+    };
+    const fila = (k, v, clase) => {
+      const tr = el('tr', null, clase);
+      tr.append(el('td', k), el('td', v));
+      return tr;
+    };
+    const cont = document.getElementById('impresion');
+    const tabla = el('table');
+    const cuerpo = el('tbody');
+    d.filas.forEach(([k, v]) => cuerpo.append(fila(k, v)));
+    cuerpo.append(fila('Total' + (d.conEnvio ? ' (con envío)' : ''), d.total, 'total'));
+    tabla.append(cuerpo);
+    const meta = el('div', null, 'meta');
+    meta.append(el('div', (d.negocio ? d.negocio + ' · ' : '') + 'Fecha: ' + d.fecha));
+    if (d.cliente) meta.append(el('div', 'Cliente: ' + d.cliente));
+    cont.replaceChildren(el('h1', 'Presupuesto de impresión 3D'), meta, tabla);
+    if (d.notas) cont.append(el('p', 'Notas: ' + d.notas));
+    if (d.validez) cont.append(el('p', d.validez));
+    window.print();
+  });
+
+  document.getElementById('copiar').addEventListener('click', async e => {
     const btn = e.currentTarget, txt = btn.textContent;
     try {
-      await navigator.clipboard.writeText(lineas.join('\n'));
+      await navigator.clipboard.writeText(textoPresupuesto().replace(/\*/g, ''));
       btn.textContent = '¡Copiado!';
     } catch (err) {
       btn.textContent = 'No se pudo copiar';
@@ -528,11 +748,8 @@
   });
 
   pintarMisImpresoras();
+  pintarProductos();
   cargar();
-  // Si los W guardados no coinciden con el modelo elegido (p. ej. datos de una versión anterior), es personalizada.
-  const wModelo = impresora.selectedOptions[0].dataset.w;
-  if (wModelo != null && parseFloat(watts.value) !== parseFloat(wModelo)) impresora.value = 'custom';
-  actualizarPanelImpresora();
   calcular();
 })();
 </script>
