@@ -6,6 +6,10 @@ Página web estática (un solo archivo, sin dependencias) que calcula el costo r
 
 Abre `index.html` en cualquier navegador y elige tu país en el selector de moneda (todos los países hispanohablantes y Brasil). Los valores se guardan automáticamente en el navegador.
 
+## Consumo de la impresora
+
+Elige tu modelo en la lista (Bambu Lab, Creality, Prusa, Anycubic, Elegoo, Artillery y de resina) para cargar su consumo promedio aproximado, o elige **Personalizada** e ingresa los watts. Las configuraciones personalizadas se pueden guardar con un nombre y aparecen en **Mis impresoras**.
+
 ## Qué calcula
 
 | Concepto | Fórmula |
@@ -16,7 +20,7 @@ Abre `index.html` en cualquier navegador y elige tu país en el selector de mone
 | Mantenimiento | costo por hora × horas |
 | Fallos | (material + electricidad + desgaste + mantenimiento) × (1 ÷ (1 − tasa) − 1) |
 | Mano de obra | minutos de trabajo ÷ 60 × valor de la hora |
-| Costo total | suma de todo lo anterior + insumos extra |
-| Precio de venta | (costo × (1 + margen)) ÷ (1 − impuestos/comisiones) |
+| Costo total | suma de todo lo anterior + insumos extra (+ envío, si es gratis para el cliente) |
+| Precio de venta | (costo × (1 + margen)) ÷ (1 − impuestos/comisiones) (+ envío, si lo paga el cliente) |
 
 Si se imprimen varias piezas en el mismo trabajo, ingresa el peso y tiempo totales y la cantidad: se muestra también el precio por unidad.

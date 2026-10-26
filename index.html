@@ -40,6 +40,7 @@
     --total: #5eead4;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body {
     margin: 0;
     background: var(--bg);
@@ -95,6 +96,8 @@
   .price .lbl { font-size: 0.85rem; color: var(--muted); }
   .price .val { font-size: 1.9rem; font-weight: 700; color: var(--total); font-variant-numeric: tabular-nums; }
   .price .unit { font-size: 0.9rem; color: var(--muted); }
+  .guardar { margin-top: 12px; align-items: end; }
+  .guardar button { flex: none; width: 100%; }
   .actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
   button {
     flex: 1;
@@ -195,13 +198,56 @@
       <fieldset>
         <legend>Energía</legend>
         <div class="grid">
-          <label>Consumo de la impresora (W)
-            <input id="watts" type="number" min="0" step="1" value="150">
+          <label>Modelo de impresora
+            <select id="impresora">
+              <option value="custom">Personalizada (ingresar W)</option>
+              <optgroup label="Mis impresoras" id="misImpresoras" hidden></optgroup>
+              <optgroup label="Bambu Lab">
+                <option value="bambu-a1mini" data-w="80">Bambu Lab A1 mini (~80 W)</option>
+                <option value="bambu-a1" data-w="95" selected>Bambu Lab A1 (~95 W)</option>
+                <option value="bambu-p1" data-w="110">Bambu Lab P1P / P1S (~110 W)</option>
+                <option value="bambu-x1" data-w="120">Bambu Lab X1 Carbon (~120 W)</option>
+              </optgroup>
+              <optgroup label="Creality">
+                <option value="ender3" data-w="120">Creality Ender 3 / V2 / Pro (~120 W)</option>
+                <option value="ender3v3" data-w="110">Creality Ender 3 V3 SE / KE (~110 W)</option>
+                <option value="k1" data-w="140">Creality K1 / K1C (~140 W)</option>
+                <option value="cr10" data-w="180">Creality CR-10 (~180 W)</option>
+              </optgroup>
+              <optgroup label="Prusa">
+                <option value="prusa-mini" data-w="50">Prusa MINI+ (~50 W)</option>
+                <option value="prusa-mk4" data-w="80">Prusa MK3S+ / MK4 (~80 W)</option>
+                <option value="prusa-core" data-w="140">Prusa Core One (~140 W)</option>
+              </optgroup>
+              <optgroup label="Otras FDM">
+                <option value="kobra" data-w="120">Anycubic Kobra 2 / 3 (~120 W)</option>
+                <option value="neptune4" data-w="120">Elegoo Neptune 4 / 4 Pro (~120 W)</option>
+                <option value="sidewinder" data-w="200">Artillery Sidewinder X2 / X3 (~200 W)</option>
+              </optgroup>
+              <optgroup label="Resina">
+                <option value="mars" data-w="40">Elegoo Mars 4 / 5 (~40 W)</option>
+                <option value="photon" data-w="45">Anycubic Photon Mono (~45 W)</option>
+                <option value="saturn" data-w="60">Elegoo Saturn 3 / 4 (~60 W)</option>
+              </optgroup>
+            </select>
+          </label>
+          <label>Consumo promedio (W)
+            <input id="watts" type="number" min="0" step="1" value="95">
           </label>
           <label>Precio de la electricidad (por kWh)
             <input id="kwh" type="number" min="0" step="0.001" value="0.15">
           </label>
         </div>
+        <div class="grid guardar" id="guardarImpresora">
+          <label>Guardar esta configuración como
+            <input id="nombreImpresora" type="text" placeholder="Ej.: Mi Ender con gabinete" data-nosave>
+          </label>
+          <button type="button" id="btnGuardarImpresora">Guardar impresora</button>
+        </div>
+        <div class="guardar" id="borrarImpresora" hidden>
+          <button type="button" id="btnBorrarImpresora">Eliminar esta impresora de mi lista</button>
+        </div>
+        <p class="hint">Consumo promedio aproximado imprimiendo PLA (no la potencia máxima de la fuente). Con ABS, gabinete o cama grande sube. Para más precisión, mídelo con un medidor de enchufe.</p>
       </fieldset>
 
       <fieldset>
@@ -235,6 +281,22 @@
       </fieldset>
 
       <fieldset>
+        <legend>Envío</legend>
+        <div class="grid">
+          <label>Costo de envío
+            <input id="envio" type="number" min="0" step="0.01" value="0">
+          </label>
+          <label>¿Quién paga el envío?
+            <select id="envioPaga">
+              <option value="cliente">El cliente (se suma al precio)</option>
+              <option value="yo">Yo (envío gratis, va al costo)</option>
+            </select>
+          </label>
+        </div>
+        <p class="hint">Si lo paga el cliente, se suma al final sin ganancia. Si ofreces envío gratis, se incluye en el costo y se cubre con el precio.</p>
+      </fieldset>
+
+      <fieldset>
         <legend>Riesgo y ganancia</legend>
         <div class="grid">
           <label>Tasa de fallos (%)
@@ -262,9 +324,11 @@
           <tr><td>Margen por fallos</td><td id="rFallos"></td></tr>
           <tr><td>Mano de obra</td><td id="rLabor"></td></tr>
           <tr><td>Insumos extra</td><td id="rExtras"></td></tr>
+          <tr id="filaEnvioCosto" hidden><td>Envío (gratis para el cliente)</td><td id="rEnvioCosto"></td></tr>
           <tr class="sub"><td>Costo total</td><td id="rCosto"></td></tr>
           <tr><td>Ganancia</td><td id="rGanancia"></td></tr>
           <tr><td>Impuestos / comisiones</td><td id="rImpuestos"></td></tr>
+          <tr id="filaEnvioCliente"><td>Envío (cobrado al cliente)</td><td id="rEnvioCliente"></td></tr>
         </tbody>
       </table>
       <div class="price">
@@ -284,9 +348,75 @@
 (function () {
   const form = document.getElementById('form');
   const moneda = document.getElementById('moneda');
-  const campos = [...form.querySelectorAll('input, select'), moneda];
+  const campos = [...form.querySelectorAll('input:not([data-nosave]), select'), moneda];
   const defaults = Object.fromEntries(campos.map(el => [el.id, el.value]));
   const CLAVE = 'calc3d:v1';
+  const CLAVE_IMPRESORAS = 'calc3d:impresoras';
+
+  const impresora = document.getElementById('impresora');
+  const watts = document.getElementById('watts');
+  const misImpresoras = document.getElementById('misImpresoras');
+  const nombreImpresora = document.getElementById('nombreImpresora');
+
+  function leerMisImpresoras() {
+    try { return JSON.parse(localStorage.getItem(CLAVE_IMPRESORAS) || '[]'); } catch (e) { return []; }
+  }
+
+  function pintarMisImpresoras() {
+    const lista = leerMisImpresoras();
+    misImpresoras.replaceChildren(...lista.map(p => {
+      const o = document.createElement('option');
+      o.value = 'u:' + p.nombre;
+      o.dataset.w = p.w;
+      o.textContent = p.nombre + ' (' + p.w + ' W)';
+      return o;
+    }));
+    misImpresoras.hidden = lista.length === 0;
+  }
+
+  function actualizarPanelImpresora() {
+    const propia = impresora.value.startsWith('u:');
+    document.getElementById('guardarImpresora').hidden = impresora.value !== 'custom';
+    document.getElementById('borrarImpresora').hidden = !propia;
+  }
+
+  // Estos listeners se registran antes que el general para que el cálculo use los W actualizados.
+  impresora.addEventListener('input', () => {
+    const w = impresora.selectedOptions[0].dataset.w;
+    if (w != null) watts.value = w;
+    actualizarPanelImpresora();
+  });
+
+  watts.addEventListener('input', () => {
+    const w = impresora.selectedOptions[0].dataset.w;
+    if (w != null && parseFloat(watts.value) !== parseFloat(w)) {
+      impresora.value = 'custom';
+      actualizarPanelImpresora();
+    }
+  });
+
+  document.getElementById('btnGuardarImpresora').addEventListener('click', () => {
+    const nombre = nombreImpresora.value.trim();
+    if (!nombre) { nombreImpresora.focus(); return; }
+    const lista = leerMisImpresoras().filter(p => p.nombre !== nombre);
+    lista.push({ nombre, w: num('watts') });
+    try { localStorage.setItem(CLAVE_IMPRESORAS, JSON.stringify(lista)); } catch (e) {}
+    pintarMisImpresoras();
+    impresora.value = 'u:' + nombre;
+    nombreImpresora.value = '';
+    actualizarPanelImpresora();
+    guardar();
+  });
+
+  document.getElementById('btnBorrarImpresora').addEventListener('click', () => {
+    const nombre = impresora.value.slice(2);
+    const lista = leerMisImpresoras().filter(p => p.nombre !== nombre);
+    try { localStorage.setItem(CLAVE_IMPRESORAS, JSON.stringify(lista)); } catch (e) {}
+    pintarMisImpresoras();
+    impresora.value = 'custom';
+    actualizarPanelImpresora();
+    guardar();
+  });
 
   const num = id => {
     const v = parseFloat(document.getElementById(id).value);
@@ -315,11 +445,17 @@
     const labor = num('minLabor') / 60 * num('tarifaHora');
     const extras = num('extras');
 
-    const costo = produccion + fallos + labor + extras;
+    const envio = num('envio');
+    const envioGratis = document.getElementById('envioPaga').value === 'yo';
+    const envioCosto = envioGratis ? envio : 0;
+    const envioCliente = envioGratis ? 0 : envio;
+
+    const costo = produccion + fallos + labor + extras + envioCosto;
     const ganancia = costo * num('margen') / 100;
     const t = Math.min(num('impuestos'), 90) / 100;
-    const precio = (costo + ganancia) / (1 - t);
-    const impuestos = precio - costo - ganancia;
+    const precioSinEnvio = (costo + ganancia) / (1 - t);
+    const impuestos = precioSinEnvio - costo - ganancia;
+    const precio = precioSinEnvio + envioCliente;
 
     set('rMaterial', material);
     set('rEnergia', energia);
@@ -331,6 +467,10 @@
     set('rCosto', costo);
     set('rGanancia', ganancia);
     set('rImpuestos', impuestos);
+    set('rEnvioCosto', envioCosto);
+    set('rEnvioCliente', envioCliente);
+    document.getElementById('filaEnvioCosto').hidden = !envioGratis;
+    document.getElementById('filaEnvioCliente').hidden = envioGratis;
     set('rPrecio', precio);
     document.getElementById('rUnidad').textContent =
       cantidad > 1 ? fmt(precio / cantidad) + ' por unidad (' + cantidad + ' piezas)' : '';
@@ -338,7 +478,7 @@
     const nombre = document.getElementById('nombre').value.trim();
     document.getElementById('tituloResumen').textContent = nombre ? 'Resumen: ' + nombre : 'Resumen de costos';
 
-    return { nombre, horas, cantidad, costo, precio };
+    return { nombre, horas, cantidad, costo, precio, envio, envioGratis };
   }
 
   function guardar() {
@@ -362,6 +502,7 @@
   document.getElementById('reset').addEventListener('click', () => {
     campos.forEach(el => { el.value = defaults[el.id]; });
     try { localStorage.removeItem(CLAVE); } catch (e) {}
+    actualizarPanelImpresora();
     calcular();
   });
 
@@ -371,9 +512,10 @@
     const lineas = [
       'Presupuesto de impresión 3D' + (r.nombre ? ': ' + r.nombre : ''),
       'Material: ' + document.getElementById('material').value + ', ' + num('peso') + ' g',
-      'Tiempo de impresión: ' + h + ' h ' + m + ' min',
-      'Precio total: ' + fmt(r.precio)
+      'Tiempo de impresión: ' + h + ' h ' + m + ' min'
     ];
+    if (r.envio > 0) lineas.push(r.envioGratis ? 'Envío: gratis' : 'Envío: ' + fmt(r.envio));
+    lineas.push('Precio total' + (r.envio > 0 ? ' (con envío)' : '') + ': ' + fmt(r.precio));
     if (r.cantidad > 1) lineas.push('Precio por unidad: ' + fmt(r.precio / r.cantidad) + ' (' + r.cantidad + ' piezas)');
     const btn = e.currentTarget, txt = btn.textContent;
     try {
@@ -385,7 +527,12 @@
     setTimeout(() => { btn.textContent = txt; }, 1500);
   });
 
+  pintarMisImpresoras();
   cargar();
+  // Si los W guardados no coinciden con el modelo elegido (p. ej. datos de una versión anterior), es personalizada.
+  const wModelo = impresora.selectedOptions[0].dataset.w;
+  if (wModelo != null && parseFloat(watts.value) !== parseFloat(wModelo)) impresora.value = 'custom';
+  actualizarPanelImpresora();
   calcular();
 })();
 </script>
