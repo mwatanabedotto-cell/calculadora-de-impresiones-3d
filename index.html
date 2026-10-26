@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculadora Impresión 3D</title>
+<meta name="description" content="Calcula el costo real y el precio de venta de tus impresiones 3D: material, energía, desgaste de la impresora, mano de obra, fallos y margen.">
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --border: #dde1e7;
+    --text: #1b1f24;
+    --muted: #5d6673;
+    --accent: #0f766e;
+    --accent-soft: #e6f4f2;
+    --total: #0b5d57;
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #111418;
+      --surface: #1a1f25;
+      --border: #2c333c;
+      --text: #e7eaee;
+      --muted: #9aa4b1;
+      --accent: #2dd4bf;
+      --accent-soft: #15302e;
+      --total: #5eead4;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #111418;
+    --surface: #1a1f25;
+    --border: #2c333c;
+    --text: #e7eaee;
+    --muted: #9aa4b1;
+    --accent: #2dd4bf;
+    --accent-soft: #15302e;
+    --total: #5eead4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  h1 { font-size: 1.6rem; margin: 0; }
+  header p { margin: 4px 0 0; color: var(--muted); }
+  .layout { display: grid; grid-template-columns: 1fr 340px; gap: 20px; align-items: start; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+  fieldset {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin: 0 0 16px;
+  }
+  legend { font-weight: 600; padding: 0 6px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  label { display: block; font-size: 0.85rem; color: var(--muted); }
+  input, select {
+    width: 100%;
+    margin-top: 4px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font: inherit;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .time { display: flex; gap: 8px; }
+  .hint { font-size: 0.78rem; color: var(--muted); margin-top: 8px; }
+  aside {
+    position: sticky; top: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  aside h2 { font-size: 1.05rem; margin: 0 0 12px; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  td { padding: 6px 0; border-bottom: 1px solid var(--border); }
+  td:last-child { text-align: right; }
+  tr.sub td { font-weight: 600; }
+  .price {
+    margin-top: 16px; padding: 14px;
+    background: var(--accent-soft);
+    border-radius: 10px;
+  }
+  .price .lbl { font-size: 0.85rem; color: var(--muted); }
+  .price .val { font-size: 1.9rem; font-weight: 700; color: var(--total); font-variant-numeric: tabular-nums; }
+  .price .unit { font-size: 0.9rem; color: var(--muted); }
+  .actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  button {
+    flex: 1;
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Calculadora de costo de impresión 3D</h1>
+      <p>Material, energía, desgaste, mano de obra, fallos y margen de ganancia.</p>
+    </div>
+    <label style="min-width:140px">Moneda
+      <select id="moneda">
+        <option value="$">$</option>
+        <option value="€">€</option>
+        <option value="R$">R$</option>
+        <option value="S/">S/</option>
+        <option value="US$">US$</option>
+      </select>
+    </label>
+  </header>
+
+  <div class="layout">
+    <form id="form" autocomplete="off">
+      <fieldset>
+        <legend>Pieza</legend>
+        <div class="grid">
+          <label>Nombre de la pieza
+            <input id="nombre" type="text" placeholder="Ej.: soporte de celular">
+          </label>
+          <label>Peso del filamento (g)
+            <input id="peso" type="number" min="0" step="0.1" value="50">
+          </label>
+          <label>Tiempo de impresión
+            <span class="time">
+              <input id="horas" type="number" min="0" step="1" value="3" aria-label="Horas" title="Horas">
+              <input id="minutos" type="number" min="0" max="59" step="1" value="0" aria-label="Minutos" title="Minutos">
+            </span>
+          </label>
+          <label>Cantidad de piezas
+            <input id="cantidad" type="number" min="1" step="1" value="1">
+          </label>
+        </div>
+        <p class="hint">Peso y tiempo totales del trabajo (tal como los da el laminador). La cantidad solo divide el precio por unidad.</p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Material</legend>
+        <div class="grid">
+          <label>Tipo de filamento
+            <select id="material">
+              <option value="PLA">PLA</option>
+              <option value="PETG">PETG</option>
+              <option value="ABS">ABS</option>
+              <option value="ASA">ASA</option>
+              <option value="TPU">TPU</option>
+              <option value="Resina">Resina</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </label>
+          <label>Precio del rollo
+            <input id="precioRollo" type="number" min="0" step="0.01" value="20">
+          </label>
+          <label>Peso del rollo (g)
+            <input id="pesoRollo" type="number" min="1" step="1" value="1000">
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Energía</legend>
+        <div class="grid">
+          <label>Consumo de la impresora (W)
+            <input id="watts" type="number" min="0" step="1" value="150">
+          </label>
+          <label>Precio de la electricidad (por kWh)
+            <input id="kwh" type="number" min="0" step="0.001" value="0.15">
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Impresora</legend>
+        <div class="grid">
+          <label>Costo de la impresora
+            <input id="costoImpresora" type="number" min="0" step="1" value="400">
+          </label>
+          <label>Vida útil estimada (h)
+            <input id="vidaUtil" type="number" min="1" step="1" value="5000">
+          </label>
+          <label>Mantenimiento y repuestos (por hora)
+            <input id="mantenimiento" type="number" min="0" step="0.01" value="0.05">
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Mano de obra y extras</legend>
+        <div class="grid">
+          <label>Tiempo de trabajo manual (min)
+            <input id="minLabor" type="number" min="0" step="1" value="15">
+          </label>
+          <label>Valor de tu hora
+            <input id="tarifaHora" type="number" min="0" step="0.01" value="10">
+          </label>
+          <label>Insumos extra (pintura, tornillos, embalaje)
+            <input id="extras" type="number" min="0" step="0.01" value="0">
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Riesgo y ganancia</legend>
+        <div class="grid">
+          <label>Tasa de fallos (%)
+            <input id="fallos" type="number" min="0" max="90" step="1" value="10">
+          </label>
+          <label>Margen de ganancia (%)
+            <input id="margen" type="number" min="0" step="1" value="50">
+          </label>
+          <label>Impuestos / comisiones (%)
+            <input id="impuestos" type="number" min="0" max="90" step="0.1" value="0">
+          </label>
+        </div>
+        <p class="hint">Los fallos encarecen material, energía y desgaste. Los impuestos/comisiones se calculan sobre el precio final (p. ej. comisión del marketplace).</p>
+      </fieldset>
+    </form>
+
+    <aside aria-live="polite">
+      <h2 id="tituloResumen">Resumen de costos</h2>
+      <table>
+        <tbody>
+          <tr><td>Material</td><td id="rMaterial"></td></tr>
+          <tr><td>Electricidad</td><td id="rEnergia"></td></tr>
+          <tr><td>Desgaste de impresora</td><td id="rDesgaste"></td></tr>
+          <tr><td>Mantenimiento</td><td id="rMant"></td></tr>
+          <tr><td>Margen por fallos</td><td id="rFallos"></td></tr>
+          <tr><td>Mano de obra</td><td id="rLabor"></td></tr>
+          <tr><td>Insumos extra</td><td id="rExtras"></td></tr>
+          <tr class="sub"><td>Costo total</td><td id="rCosto"></td></tr>
+          <tr><td>Ganancia</td><td id="rGanancia"></td></tr>
+          <tr><td>Impuestos / comisiones</td><td id="rImpuestos"></td></tr>
+        </tbody>
+      </table>
+      <div class="price">
+        <div class="lbl">Precio de venta sugerido</div>
+        <div class="val" id="rPrecio"></div>
+        <div class="unit" id="rUnidad"></div>
+      </div>
+      <div class="actions">
+        <button type="button" class="primary" id="copiar">Copiar presupuesto</button>
+        <button type="button" id="reset">Restablecer</button>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(function () {
+  const form = document.getElementById('form');
+  const moneda = document.getElementById('moneda');
+  const campos = [...form.querySelectorAll('input, select'), moneda];
+  const defaults = Object.fromEntries(campos.map(el => [el.id, el.value]));
+  const CLAVE = 'calc3d:v1';
+
+  const num = id => {
+    const v = parseFloat(document.getElementById(id).value);
+    return Number.isFinite(v) && v > 0 ? v : 0;
+  };
+  const fmt = v => moneda.value + ' ' + v.toLocaleString('es', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const set = (id, v) => { document.getElementById(id).textContent = fmt(v); };
+
+  function calcular() {
+    const horas = num('horas') + Math.min(num('minutos'), 59) / 60;
+    const cantidad = Math.max(1, Math.round(num('cantidad')));
+
+    const material = num('peso') * num('precioRollo') / Math.max(num('pesoRollo'), 1);
+    const energia = num('watts') / 1000 * horas * num('kwh');
+    const desgaste = num('costoImpresora') / Math.max(num('vidaUtil'), 1) * horas;
+    const mant = num('mantenimiento') * horas;
+
+    // Una tasa de fallos f significa que, en promedio, hay que imprimir 1/(1-f) veces.
+    const f = Math.min(num('fallos'), 90) / 100;
+    const produccion = material + energia + desgaste + mant;
+    const fallos = produccion * (1 / (1 - f) - 1);
+
+    const labor = num('minLabor') / 60 * num('tarifaHora');
+    const extras = num('extras');
+
+    const costo = produccion + fallos + labor + extras;
+    const ganancia = costo * num('margen') / 100;
+    const t = Math.min(num('impuestos'), 90) / 100;
+    const precio = (costo + ganancia) / (1 - t);
+    const impuestos = precio - costo - ganancia;
+
+    set('rMaterial', material);
+    set('rEnergia', energia);
+    set('rDesgaste', desgaste);
+    set('rMant', mant);
+    set('rFallos', fallos);
+    set('rLabor', labor);
+    set('rExtras', extras);
+    set('rCosto', costo);
+    set('rGanancia', ganancia);
+    set('rImpuestos', impuestos);
+    set('rPrecio', precio);
+    document.getElementById('rUnidad').textContent =
+      cantidad > 1 ? fmt(precio / cantidad) + ' por unidad (' + cantidad + ' piezas)' : '';
+
+    const nombre = document.getElementById('nombre').value.trim();
+    document.getElementById('tituloResumen').textContent = nombre ? 'Resumen: ' + nombre : 'Resumen de costos';
+
+    return { nombre, horas, cantidad, costo, precio };
+  }
+
+  function guardar() {
+    try { localStorage.setItem(CLAVE, JSON.stringify(Object.fromEntries(campos.map(el => [el.id, el.value])))); } catch (e) {}
+  }
+
+  function cargar() {
+    try {
+      const datos = JSON.parse(localStorage.getItem(CLAVE) || '{}');
+      campos.forEach(el => { if (datos[el.id] != null) el.value = datos[el.id]; });
+    } catch (e) {}
+  }
+
+  campos.forEach(el => el.addEventListener('input', () => { calcular(); guardar(); }));
+
+  document.getElementById('reset').addEventListener('click', () => {
+    campos.forEach(el => { el.value = defaults[el.id]; });
+    try { localStorage.removeItem(CLAVE); } catch (e) {}
+    calcular();
+  });
+
+  document.getElementById('copiar').addEventListener('click', async e => {
+    const r = calcular();
+    const h = Math.floor(r.horas), m = Math.round((r.horas - h) * 60);
+    const lineas = [
+      'Presupuesto de impresión 3D' + (r.nombre ? ': ' + r.nombre : ''),
+      'Material: ' + document.getElementById('material').value + ', ' + num('peso') + ' g',
+      'Tiempo de impresión: ' + h + ' h ' + m + ' min',
+      'Precio total: ' + fmt(r.precio)
+    ];
+    if (r.cantidad > 1) lineas.push('Precio por unidad: ' + fmt(r.precio / r.cantidad) + ' (' + r.cantidad + ' piezas)');
+    const btn = e.currentTarget, txt = btn.textContent;
+    try {
+      await navigator.clipboard.writeText(lineas.join('\n'));
+      btn.textContent = '¡Copiado!';
+    } catch (err) {
+      btn.textContent = 'No se pudo copiar';
+    }
+    setTimeout(() => { btn.textContent = txt; }, 1500);
+  });
+
+  cargar();
+  calcular();
+})();
+</script>
+</body>
+</html>
